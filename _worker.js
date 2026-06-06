@@ -7,6 +7,17 @@ const auth_url = 'https://auth.docker.io';
 
 let 屏蔽爬虫UA = ['netcraft'];
 
+// 添加 HTML 转义函数，用于调试页面
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
 // 根据主机名选择对应的上游地址
 function routeByHosts(host) {
 	// 定义路由表
@@ -483,7 +494,33 @@ export default {
 					url.searchParams.set('q', search.replace('library/', ''));
 				}
 				const newRequest = new Request(url, request);
-				return fetch(newRequest);
+				// ========== 调试模式：打印原始响应 ==========
+				const response = await fetch(newRequest);
+				const responseBody = await response.text();
+				const responseStatus = response.status;
+				const responseHeaders = JSON.stringify([...response.headers], null, 2);
+				return new Response(
+					`<!DOCTYPE html>
+					<html>
+					<head><title>Debug - Upstream Response</title><meta charset="UTF-8"></head>
+					<body>
+					<h1>Upstream Response from ${escapeHtml(url.hostname)}</h1>
+					<p><strong>Status Code:</strong> ${responseStatus}</p>
+					<p><strong>Headers:</strong></p>
+					<pre>${escapeHtml(responseHeaders)}</pre>
+					<p><strong>Body:</strong></p>
+					<pre>${escapeHtml(responseBody)}</pre>
+					<hr>
+					<p>This is a debug page. To restore normal behavior, remove the debug code in _worker.js.</p>
+					</body>
+					</html>`,
+					{
+						status: 200,
+						headers: { 'Content-Type': 'text/html; charset=utf-8' }
+					}
+				);
+				// ========== 调试模式结束 ==========
+				// 原代码: return fetch(newRequest);
 			}
 		}
 
